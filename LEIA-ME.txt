@@ -1,0 +1,13 @@
+GRADE DE AMOSTRAGEM DE SOLO — PWA instalável e offline
+Desenvolvido por João Divino Barbosa
+
+COMO PUBLICAR (precisa de HTTPS — GitHub Pages ou Vercel servem):
+1. Suba TODA esta pasta (index.html, sw.js, manifest.webmanifest, icons/, lib/).
+2. Abra o endereço no celular, com internet, UMA vez. Aparece "App pronto para uso offline".
+3. Instalar:
+   - Android/Chrome: botão ⬇️ no topo (ou menu ⋮ > Instalar app).
+   - iPhone/Safari: Compartilhar > Adicionar à Tela de Início.
+4. Para mapa offline no campo: com internet, desenhe o talhão e toque em
+   "Baixar área do talhão" (escolha mapa ou satélite antes).
+
+Ao atualizar o app: altere VERSAO em sw.js (ex.: 'v5') para forçar a troca do cache.

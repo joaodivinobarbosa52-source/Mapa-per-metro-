@@ -1,0 +1,1948 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Grade de Amostragem de Solo</title>
+<meta name="theme-color" content="#0d1f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grade Solo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="lib/leaflet.css" />
+<style>
+  :root{
+    --verde-esc:#0d1f14;
+    --verde:#123822;
+    --verde-2:#1c4d2e;
+    --ouro:#f0c040;
+    --ouro-esc:#c99a2e;
+    --texto:#eaf3ec;
+    --texto-fraco:#9fb5a7;
+    --erro:#e0665a;
+    --ok:#5ac084;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--verde-esc);
+    font-family:'DM Sans',-apple-system,sans-serif; color:var(--texto);}
+  @font-face{font-family:'Syne';src:local('Syne');}
+  h1,h2,h3,.titulo{font-family:'Syne','Bebas Neue',sans-serif;letter-spacing:.3px;}
+  #app{position:relative;width:100%;height:100%;}
+  #map{position:absolute;inset:0;z-index:1;}
+
+  header{
+    position:absolute; top:0; left:0; right:0; z-index:500;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; background:linear-gradient(180deg,rgba(13,31,20,.95),rgba(13,31,20,.75) 70%,transparent);
+    pointer-events:none;
+  }
+  header .brand{display:flex;align-items:center;gap:8px;pointer-events:auto;}
+  header .brand svg{width:26px;height:26px;flex:0 0 auto;}
+  header .brand span{font-size:15px;font-weight:700;color:var(--ouro);}
+  header .actions{display:flex;gap:8px;pointer-events:auto;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:10px;border:1px solid rgba(240,192,64,.35);
+    background:rgba(18,56,34,.85); color:var(--ouro); display:flex;align-items:center;justify-content:center;
+    font-size:17px; cursor:pointer;
+  }
+  .icon-btn:active{transform:scale(.94);}
+  .icon-btn.ativo{background:var(--ouro); color:var(--verde-esc); border-color:var(--ouro);}
+
+  #painel{
+    position:absolute; left:0; right:0; bottom:0; z-index:600;
+    background:var(--verde); border-top:1px solid rgba(240,192,64,.25);
+    border-radius:18px 18px 0 0; box-shadow:0 -8px 24px rgba(0,0,0,.4);
+    max-height:78vh; display:flex; flex-direction:column;
+    transform:translateY(calc(100% - 58px)); transition:transform .28s ease;
+  }
+  #painel.aberto{transform:translateY(0);}
+  #alca{
+    display:flex; flex-direction:column; align-items:center; padding:9px 0 6px;
+    cursor:pointer;
+  }
+  #alca .barra{width:42px;height:4px;border-radius:3px;background:rgba(240,192,64,.4);}
+  #alca .resumo{font-size:12.5px;color:var(--texto-fraco);margin-top:6px;display:flex;gap:14px;}
+  #alca .resumo b{color:var(--ouro);}
+
+  #conteudo{overflow-y:auto; padding:2px 16px 22px; flex:1;}
+  .secao{margin-top:14px;}
+  .secao h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;color:var(--texto-fraco);letter-spacing:.6px;}
+
+  .linha-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{
+    border:1px solid rgba(240,192,64,.35); background:var(--verde-2); color:var(--texto);
+    padding:10px 14px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:6px; flex:1; justify-content:center; min-width:0;
+  }
+  .btn.ouro{background:var(--ouro);color:var(--verde-esc);border-color:var(--ouro);}
+  .btn.perigo{border-color:rgba(224,102,90,.5); color:var(--erro);}
+  .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.4;pointer-events:none;}
+  .btn.sm{padding:8px 10px;font-size:12.5px;flex:none;}
+
+  label.campo{display:block;font-size:12px;color:var(--texto-fraco);margin:10px 0 5px;}
+  input[type=number], input[type=text]{
+    width:100%; background:var(--verde-esc); border:1px solid rgba(240,192,64,.3); color:var(--texto);
+    padding:10px 12px; border-radius:9px; font-size:14.5px;
+  }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .presets{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+  .preset{
+    flex:0 0 auto;border:1px solid rgba(240,192,64,.3);background:var(--verde-esc);color:var(--ouro);
+    padding:7px 11px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;
+  }
+  .preset.ativo{background:var(--ouro);color:var(--verde-esc);}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;}
+  .stat{background:var(--verde-esc);border-radius:10px;padding:9px 8px;text-align:center;}
+  .stat b{display:block;font-size:16px;color:var(--ouro);}
+  .stat span{font-size:10.5px;color:var(--texto-fraco);}
+
+  .toggle-modo{display:flex;background:var(--verde-esc);border-radius:10px;padding:3px;margin-top:4px;}
+  .toggle-modo div{flex:1;text-align:center;padding:8px 4px;font-size:12px;border-radius:8px;cursor:pointer;color:var(--texto-fraco);}
+  .toggle-modo div.ativo{background:var(--ouro);color:var(--verde-esc);font-weight:700;}
+
+  #lista-pontos{margin-top:6px;max-height:170px;overflow-y:auto;border-radius:10px;background:var(--verde-esc);}
+  .item-ponto{
+    display:flex;justify-content:space-between;align-items:center;padding:9px 12px;
+    border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px;
+  }
+  .item-ponto:last-child{border-bottom:none;}
+  .item-ponto b{color:var(--ouro);}
+  .item-ponto .coord{color:var(--texto-fraco);font-size:11.5px;}
+
+  #talhoes-salvos .item-talhao{
+    display:flex;justify-content:space-between;align-items:center;padding:10px 12px;
+    background:var(--verde-esc);border-radius:9px;margin-bottom:7px;font-size:13px;
+  }
+  #talhoes-salvos .item-talhao span{opacity:.75;font-size:11.5px;}
+
+  #toast{
+    position:absolute; top:64px; left:50%; transform:translateX(-50%) translateY(-14px);
+    background:var(--verde-2); color:var(--texto); border:1px solid var(--ouro-esc); padding:10px 16px;
+    border-radius:10px; font-size:13px; z-index:900; opacity:0; pointer-events:none; transition:.25s;
+    max-width:88%; text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .leaflet-container{background:#0a1710;}
+  .rotulo-ponto{
+    background:var(--ouro); color:var(--verde-esc); font-weight:800; font-size:10.5px;
+    border-radius:50%; width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--verde-esc);
+  }
+  .rotulo-curva{
+    display:inline-block; transform:translate(-50%,-50%);
+    font-weight:800; font-size:11px; color:var(--verde-esc); padding:4px 9px; border-radius:8px;
+    white-space:nowrap; border:2px solid rgba(13,31,20,.55); box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .rodape-app{text-align:center;font-size:10px;color:var(--texto-fraco);margin-top:16px;opacity:.6;}
+
+  .barra-progresso{width:100%;height:8px;border-radius:5px;background:var(--verde-esc);overflow:hidden;margin-top:8px;display:none;}
+  .barra-progresso .fill{height:100%;width:0%;background:var(--ouro);transition:width .15s;}
+  .progresso-txt{font-size:11.5px;color:var(--texto-fraco);margin-top:4px;display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="5" fill="#123822" stroke="#f0c040" stroke-width="1.4"/><path d="M8 4v16M16 4v16M4 8h16M4 16h16" stroke="#f0c040" stroke-width="1.3"/></svg>
+      <span>Grade de Solo</span>
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="btn-camada" title="Alternar mapa/satélite">🛰️</button>
+      <button class="icon-btn" id="btn-gps" title="Seguir minha localização (automático)">📍</button>
+      <button class="icon-btn" id="btn-instalar" style="display:none;" title="Instalar app">⬇️</button>
+    </div>
+  </header>
+
+  <div id="toast"></div>
+
+  <div id="painel" class="aberto">
+    <div id="alca">
+      <div class="barra"></div>
+      <div class="resumo" id="dica-alca">
+        <span>Área: <b id="resumo-area">0,00 ha</b></span>
+        <span>Curvas: <b id="resumo-curvas">0</b></span>
+        <span id="seta-alca" style="color:var(--ouro);">▲ fechar</span>
+      </div>
+    </div>
+
+    <div id="conteudo">
+
+      <div class="secao">
+        <h3>1. Talhão</h3>
+        <label class="campo">Como marcar o contorno</label>
+        <div class="toggle-modo" id="toggle-modo-desenho">
+          <div class="ativo" data-modo-desenho="toque">👆 Toque no mapa</div>
+          <div data-modo-desenho="perimetro">🚶 Percorrer perímetro</div>
+        </div>
+
+        <div id="config-perimetro" style="display:none;margin-top:8px;">
+          <label class="campo">Distância mínima entre pontos automáticos (m)</label>
+          <input type="number" id="input-dist-minima" value="5" min="1" step="1">
+        </div>
+
+        <div class="linha-btns" style="margin-top:10px;">
+          <button class="btn ouro" id="btn-desenhar">✏️ Desenhar talhão</button>
+          <button class="btn" id="btn-pausar" style="display:none;">⏸️ Pausar</button>
+          <button class="btn" id="btn-fechar" disabled>✅ Fechar</button>
+        </div>
+        <div id="status-caminhada" style="display:none;margin-top:8px;font-size:12px;color:var(--texto-fraco);">
+          🟢 Gravando · <b id="cam-pontos" style="color:var(--ouro);">0</b> pontos · <b id="cam-dist" style="color:var(--ouro);">0 m</b> percorridos · precisão <b id="cam-precisao" style="color:var(--ouro);">–</b>
+        </div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn perigo" id="btn-limpar">🗑️ Limpar</button>
+        </div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn sm" id="btn-add-gps" disabled>➕ Marcar ponto agora</button>
+          <button class="btn sm" id="btn-desfazer" disabled>↩️ Desfazer ponto</button>
+        </div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn" id="btn-importar-kml">📂 Importar KML/KMZ</button>
+          <input type="file" id="input-importar-kml" accept=".kml,.kmz" style="display:none;">
+        </div>
+      </div>
+
+      <div class="secao" id="secao-curvas">
+        <h3>Curvas de nível (dentro do talhão)</h3>
+        <label class="campo">Nome da curva</label>
+        <input type="text" id="input-nome-curva" placeholder="Ex.: Curva 1 (cota alta)">
+        <div id="status-curva-atual" style="display:none;margin-top:8px;font-size:12px;color:var(--texto-fraco);">
+          🟢 Gravando · <b id="curva-pontos" style="color:var(--ouro);">0</b> pontos · <b id="curva-dist" style="color:var(--ouro);">0 m</b> percorridos · precisão <b id="curva-precisao" style="color:var(--ouro);">–</b>
+        </div>
+        <div class="linha-btns" style="margin-top:10px;">
+          <button class="btn ouro" id="btn-iniciar-curva">🚶 Iniciar curva</button>
+          <button class="btn" id="btn-pausar-curva" style="display:none;">⏸️ Pausar</button>
+          <button class="btn" id="btn-finalizar-curva" disabled>✅ Finalizar curva</button>
+        </div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn sm" id="btn-add-gps-curva" disabled>➕ Marcar ponto agora</button>
+          <button class="btn sm" id="btn-desfazer-curva" disabled>↩️ Desfazer ponto</button>
+        </div>
+        <div id="lista-curvas" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="secao" id="secao-linhas-aplicacao">
+        <h3>Linhas de aplicação (faixas)</h3>
+        <label class="campo">Largura da faixa/implemento (m)</label>
+        <input type="number" id="input-largura-faixa" value="18" min="0.5" step="0.5">
+        <label class="campo">Direção das linhas</label>
+        <div class="toggle-modo" id="toggle-modo-direcao">
+          <div class="ativo" data-modo="auto">Automática</div>
+          <div data-modo="manual">Ângulo</div>
+          <div data-modo="clique">No mapa</div>
+        </div>
+        <div id="wrap-angulo-linhas" style="display:none;margin-top:8px;">
+          <label class="campo">Ângulo (graus, 0° = Norte, sentido horário)</label>
+          <input type="number" id="input-angulo-linhas" value="0" min="0" max="359" step="1">
+        </div>
+        <div id="wrap-clique-linhas" style="display:none;margin-top:8px;">
+          <div class="linha-btns">
+            <button class="btn sm" id="btn-marcar-ab">📍 Marcar ponto A</button>
+            <button class="btn sm" id="btn-limpar-ab">✕ Limpar</button>
+          </div>
+          <div id="status-ab-linhas" style="margin-top:6px;font-size:12px;color:var(--texto-fraco);">Nenhum ponto marcado ainda.</div>
+        </div>
+        <div class="linha-btns" style="margin-top:10px;">
+          <button class="btn ouro" id="btn-gerar-linhas">📐 Gerar linhas de aplicação</button>
+        </div>
+        <div id="resumo-linhas-aplicacao" style="display:none;margin-top:8px;font-size:12px;color:var(--texto-fraco);"></div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn sm" id="btn-linhas-kml" disabled>🌍 KML</button>
+          <button class="btn sm" id="btn-linhas-gpx" disabled>📍 GPX</button>
+          <button class="btn sm" id="btn-linhas-shp" disabled>🗂️ Shapefile (.zip)</button>
+        </div>
+      </div>
+
+      <div class="secao">
+        <h3>Imagens offline (satélite/mapa)</h3>
+        <div class="linha-btns">
+          <button class="btn" id="btn-baixar-tiles">⬇️ Baixar área do talhão</button>
+        </div>
+        <div class="barra-progresso" id="barra-progresso"><div class="fill" id="barra-fill"></div></div>
+        <div class="progresso-txt" id="progresso-txt"></div>
+      </div>
+
+      <div class="secao">
+        <h3>Mapa em PDF</h3>
+        <div class="linha-btns">
+          <button class="btn ouro" id="btn-pdf-mapa">📄 Gerar mapa em PDF</button>
+        </div>
+      </div>
+
+      <div class="secao">
+        <h3>Exportar talhão e curvas</h3>
+        <div class="linha-btns">
+          <button class="btn" id="btn-gpx">🛰️ GPX</button>
+          <button class="btn" id="btn-kml">🌍 KML</button>
+          <button class="btn" id="btn-kmz">🗜️ KMZ</button>
+        </div>
+      </div>
+
+      <div class="secao">
+        <h3>Salvar / Carregar talhão</h3>
+        <label class="campo">Nome da fazenda</label>
+        <input type="text" id="input-nome-fazenda" placeholder="Ex.: Fazenda Rio da Vida">
+        <div class="grid2" style="margin-top:8px;">
+          <input type="text" id="input-nome-talhao" placeholder="Nome do talhão">
+          <button class="btn ouro sm" id="btn-salvar">💾 Salvar</button>
+        </div>
+        <div id="talhoes-salvos" style="margin-top:10px;"></div>
+        <div class="linha-btns" style="margin-top:8px;">
+          <button class="btn ouro sm" id="btn-pdf-unificado">📄 Gerar mapa unificado (PDF)</button>
+        </div>
+      </div>
+
+      <div class="rodape-app">Desenvolvido por João Divino Barbosa</div>
+    </div>
+  </div>
+</div>
+
+<script src="lib/leaflet.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script>
+/* ===================== PWA: service worker (sw.js) + instalação ===================== */
+const TILES_CACHE = 'grade-solo-tiles'; // mesmo nome usado em sw.js
+(function(){
+  const btnInstalar = document.getElementById('btn-instalar');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => {
+        try {
+          if (!localStorage.getItem('grade_solo_offline_ok')){
+            localStorage.setItem('grade_solo_offline_ok', '1');
+            toast('✅ App pronto para uso offline.', 3500);
+          }
+        } catch(e){}
+      }).catch(() => {});
+    });
+  }
+
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!standalone) btnInstalar.style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    btnInstalar.style.display = 'none';
+    toast('App instalado!');
+  });
+  // iPhone/iPad não têm o prompt automático: mostra o botão com instrução
+  if (ios && !standalone) btnInstalar.style.display = 'flex';
+
+  btnInstalar.addEventListener('click', async () => {
+    if (deferredPrompt){
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      btnInstalar.style.display = 'none';
+    } else if (ios){
+      toast('No iPhone: toque em Compartilhar (□↑) e depois em "Adicionar à Tela de Início".', 6000);
+    }
+  });
+})();
+
+/* ===================== Toast ===================== */
+function toast(msg, ms=2200){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>t.classList.remove('show'), ms);
+}
+
+function esc(t){
+  return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+// evita "enxurrada" de avisos repetidos vindos do GPS (1 por segundo)
+const _ultimoAviso = {};
+function toastLimitado(chave, msg, ms=2500, intervalo=8000){
+  const agora = Date.now();
+  if (_ultimoAviso[chave] && agora - _ultimoAviso[chave] < intervalo) return;
+  _ultimoAviso[chave] = agora;
+  toast(msg, ms);
+}
+
+/* ===================== Painel arrastável ===================== */
+const painel = document.getElementById('painel');
+document.getElementById('alca').addEventListener('click', ()=> {
+  painel.classList.toggle('aberto');
+  document.getElementById('seta-alca').textContent = painel.classList.contains('aberto') ? '▲ fechar' : '▼ ferramentas';
+});
+
+/* ===================== Mapa ===================== */
+const map = L.map('map', {zoomControl:false}).setView([-3.35, -43.35], 13); // região Chapadinha/Urbano Santos - MA
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+const camadaMapa = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '© OpenStreetMap'
+});
+const camadaSatelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19, attribution: '© Esri World Imagery'
+});
+camadaMapa.addTo(map);
+let usandoSatelite = false;
+document.getElementById('btn-camada').addEventListener('click', () => {
+  usandoSatelite = !usandoSatelite;
+  if (usandoSatelite){ map.removeLayer(camadaMapa); camadaSatelite.addTo(map); toast('Camada: satélite'); }
+  else { map.removeLayer(camadaSatelite); camadaMapa.addTo(map); toast('Camada: mapa'); }
+});
+
+let seguindoLocalizacao = false;
+let watchIdMinhaLocalizacao = null;
+let marcadorMinhaLocalizacao = null;
+let circuloMinhaLocalizacao = null;
+const btnGps = document.getElementById('btn-gps');
+
+btnGps.addEventListener('click', () => {
+  if (!navigator.geolocation) return toast('GPS não disponível neste dispositivo.');
+
+  if (seguindoLocalizacao){
+    navigator.geolocation.clearWatch(watchIdMinhaLocalizacao);
+    watchIdMinhaLocalizacao = null;
+    seguindoLocalizacao = false;
+    btnGps.classList.remove('ativo');
+    toast('Localização automática desativada.');
+    return;
+  }
+
+  seguindoLocalizacao = true;
+  btnGps.classList.add('ativo');
+  toast('Seguindo sua localização automaticamente.');
+
+  watchIdMinhaLocalizacao = navigator.geolocation.watchPosition(pos => {
+    const {latitude, longitude, accuracy} = pos.coords;
+    if (marcadorMinhaLocalizacao) map.removeLayer(marcadorMinhaLocalizacao);
+    if (circuloMinhaLocalizacao) map.removeLayer(circuloMinhaLocalizacao);
+    marcadorMinhaLocalizacao = L.circleMarker([latitude, longitude], {radius:8, color:'#ffffff', weight:2, fillColor:'#f0c040', fillOpacity:1}).addTo(map);
+    circuloMinhaLocalizacao = L.circle([latitude, longitude], {radius: accuracy, color:'#f0c040', weight:1, fillOpacity:.08}).addTo(map);
+    map.setView([latitude, longitude], map.getZoom() < 16 ? 17 : map.getZoom());
+  }, () => {
+    toast('Não foi possível obter localização.');
+    navigator.geolocation.clearWatch(watchIdMinhaLocalizacao);
+    watchIdMinhaLocalizacao = null;
+    seguindoLocalizacao = false;
+    btnGps.classList.remove('ativo');
+  }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+});
+
+/* ===================== Estado do talhão ===================== */
+let desenhando = false;
+let vertices = [];        // [{lat,lng}]
+let vertMarkers = [];
+let linhaPoligono = null;
+let poligonoFinal = null;
+
+let modoDesenho = 'toque'; // 'toque' | 'perimetro'
+let watchId = null;
+let pausado = false;
+let distanciaPercorrida = 0;
+let markerAtual = null;
+let circuloPrecisao = null;
+
+document.querySelectorAll('#toggle-modo-desenho div').forEach(el => {
+  el.addEventListener('click', () => {
+    if (desenhando) return toast('Finalize ou limpe o talhão atual antes de trocar o modo.');
+    document.querySelectorAll('#toggle-modo-desenho div').forEach(e=>e.classList.remove('ativo'));
+    el.classList.add('ativo');
+    modoDesenho = el.dataset.modoDesenho;
+    document.getElementById('config-perimetro').style.display = modoDesenho === 'perimetro' ? 'block' : 'none';
+    btnDesenhar.textContent = modoDesenho === 'perimetro' ? '🚶 Iniciar caminhada' : '✏️ Desenhar talhão';
+    btnAddGps.textContent = modoDesenho === 'perimetro' ? '➕ Marcar ponto agora' : '➕ Marcar ponto agora';
+  });
+});
+
+function distanciaMetros(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+const btnDesenhar = document.getElementById('btn-desenhar');
+const btnPausar = document.getElementById('btn-pausar');
+const btnFechar = document.getElementById('btn-fechar');
+const btnLimpar = document.getElementById('btn-limpar');
+const btnAddGps = document.getElementById('btn-add-gps');
+const btnDesfazer = document.getElementById('btn-desfazer');
+
+function atualizarLinha(){
+  if (linhaPoligono) map.removeLayer(linhaPoligono);
+  if (vertices.length > 1){
+    linhaPoligono = L.polyline(vertices.map(v=>[v.lat,v.lng]), {color:'#f0c040', weight:3, dashArray: desenhando ? '6,6' : null}).addTo(map);
+  }
+}
+
+function addVertice(lat, lng){
+  vertices.push({lat,lng});
+  const m = L.circleMarker([lat,lng], {radius:6, color:'#f0c040', fillColor:'#123822', fillOpacity:1, weight:2}).addTo(map);
+  vertMarkers.push(m);
+  atualizarLinha();
+  btnDesfazer.disabled = vertices.length === 0;
+  btnFechar.disabled = vertices.length < 3;
+}
+
+map.on('click', (e) => {
+  if (aguardandoCliqueAB){
+    marcarPontoABLinha(e.latlng.lat, e.latlng.lng);
+    return;
+  }
+  if (!desenhando || modoDesenho !== 'toque') return;
+  addVertice(e.latlng.lat, e.latlng.lng);
+});
+
+btnDesenhar.addEventListener('click', () => {
+  if (gravandoCurva) return toast('Finalize a curva de nível em andamento antes de editar o perímetro.');
+  if (modoDesenho === 'perimetro'){
+    iniciarCaminhada();
+  } else {
+    limparTudo(false);
+    desenhando = true;
+    btnDesenhar.disabled = true;
+    btnAddGps.disabled = false;
+    btnDesfazer.disabled = true;
+    btnFechar.disabled = true;
+    toast('Toque no mapa para marcar os vértices do talhão.');
+  }
+});
+
+function iniciarCaminhada(){
+  if (!navigator.geolocation) return toast('GPS não disponível neste dispositivo.');
+  limparTudo(false);
+  desenhando = true;
+  pausado = false;
+  distanciaPercorrida = 0;
+  btnDesenhar.disabled = true;
+  btnAddGps.disabled = false;
+  btnFechar.disabled = true;
+  btnPausar.style.display = 'flex';
+  btnPausar.textContent = '⏸️ Pausar';
+  document.getElementById('status-caminhada').style.display = 'block';
+  toast('Caminhe ao longo da borda do talhão. Pontos serão marcados automaticamente.');
+
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const {latitude:lat, longitude:lng, accuracy} = pos.coords;
+
+    if (markerAtual) map.removeLayer(markerAtual);
+    if (circuloPrecisao) map.removeLayer(circuloPrecisao);
+    markerAtual = L.circleMarker([lat,lng], {radius:8, color:'#ffffff', weight:2, fillColor:'#3aa6ff', fillOpacity:1}).addTo(map);
+    circuloPrecisao = L.circle([lat,lng], {radius: accuracy, color:'#3aa6ff', weight:1, fillOpacity:.08}).addTo(map);
+
+    document.getElementById('cam-precisao').textContent = Math.round(accuracy) + ' m';
+    if (accuracy > 25) toastLimitado('gps-fraco', 'Sinal de GPS fraco (±' + Math.round(accuracy) + 'm) — tente em área aberta.');
+
+    if (pausado) return;
+
+    const distMinima = parseFloat(document.getElementById('input-dist-minima').value) || 5;
+    if (!vertices.length){
+      addVertice(lat, lng);
+    } else {
+      const ultimo = vertices[vertices.length-1];
+      const d = distanciaMetros(ultimo.lat, ultimo.lng, lat, lng);
+      if (d >= distMinima){
+        distanciaPercorrida += d;
+        addVertice(lat, lng);
+      }
+    }
+    document.getElementById('cam-pontos').textContent = vertices.length;
+    document.getElementById('cam-dist').textContent = Math.round(distanciaPercorrida) + ' m';
+    map.panTo([lat, lng]);
+  }, () => toast('Não foi possível obter sua localização. Verifique as permissões de GPS.'), {
+    enableHighAccuracy: true, maximumAge: 0, timeout: 15000
+  });
+}
+
+btnPausar.addEventListener('click', () => {
+  pausado = !pausado;
+  btnPausar.textContent = pausado ? '▶️ Retomar' : '⏸️ Pausar';
+  toast(pausado ? 'Gravação pausada.' : 'Gravação retomada.');
+});
+
+function pararCaminhada(){
+  if (watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (markerAtual){ map.removeLayer(markerAtual); markerAtual = null; }
+  if (circuloPrecisao){ map.removeLayer(circuloPrecisao); circuloPrecisao = null; }
+  btnPausar.style.display = 'none';
+  document.getElementById('status-caminhada').style.display = 'none';
+}
+
+btnAddGps.addEventListener('click', () => {
+  if (!navigator.geolocation) return toast('GPS não disponível.');
+  navigator.geolocation.getCurrentPosition(pos => {
+    addVertice(pos.coords.latitude, pos.coords.longitude);
+    map.setView([pos.coords.latitude, pos.coords.longitude], map.getZoom());
+    if (modoDesenho === 'perimetro'){
+      document.getElementById('cam-pontos').textContent = vertices.length;
+      toast('Ponto marcado manualmente.');
+    }
+  }, () => toast('Não foi possível obter localização.'), {enableHighAccuracy:true});
+});
+
+btnDesfazer.addEventListener('click', () => {
+  if (!vertices.length) return;
+  vertices.pop();
+  const m = vertMarkers.pop();
+  if (m) map.removeLayer(m);
+  atualizarLinha();
+  btnDesfazer.disabled = vertices.length === 0;
+  btnFechar.disabled = vertices.length < 3;
+  if (modoDesenho === 'perimetro') document.getElementById('cam-pontos').textContent = vertices.length;
+});
+
+btnFechar.addEventListener('click', () => {
+  if (vertices.length < 3) return toast('Marque pelo menos 3 pontos.');
+  desenhando = false;
+  if (modoDesenho === 'perimetro') pararCaminhada();
+  if (linhaPoligono) { map.removeLayer(linhaPoligono); linhaPoligono = null; }
+  poligonoFinal = L.polygon(vertices.map(v=>[v.lat,v.lng]), {
+    color:'#f0c040', weight:2.5, fillColor:'#5ac084', fillOpacity:.12
+  }).addTo(map);
+  map.fitBounds(poligonoFinal.getBounds(), {padding:[40,40]});
+  btnDesenhar.disabled = false;
+  btnFechar.disabled = true;
+  btnAddGps.disabled = true;
+  btnDesfazer.disabled = true;
+  calcularArea();
+  toast('Talhão fechado.');
+});
+
+btnLimpar.addEventListener('click', () => limparTudo(true));
+
+function limparTudo(avisar){
+  desenhando = false;
+  pararCaminhada();
+  gravandoCurva = false;
+  pararGpsCurva();
+  curvaAtual = null;
+  curvas = [];
+  proximoIdCurva = 1;
+  camadaCurvas.clearLayers();
+  renderListaCurvas();
+  btnIniciarCurva.disabled = false;
+  btnFinalizarCurva.disabled = true;
+  btnAddGpsCurva.disabled = true;
+  btnDesfazerCurva.disabled = true;
+  document.getElementById('input-nome-curva').value = '';
+  if (avisar){
+    document.getElementById('input-nome-fazenda').value = '';
+    document.getElementById('input-nome-talhao').value = '';
+  }
+  vertices = [];
+  vertMarkers.forEach(m => map.removeLayer(m));
+  vertMarkers = [];
+  if (linhaPoligono) { map.removeLayer(linhaPoligono); linhaPoligono = null; }
+  if (poligonoFinal) { map.removeLayer(poligonoFinal); poligonoFinal = null; }
+  if (typeof camadaLinhasAplicacao !== 'undefined'){
+    camadaLinhasAplicacao.clearLayers();
+    linhasAplicacao = [];
+    document.getElementById('resumo-linhas-aplicacao').style.display = 'none';
+    document.getElementById('btn-linhas-kml').disabled = true;
+    document.getElementById('btn-linhas-gpx').disabled = true;
+    document.getElementById('btn-linhas-shp').disabled = true;
+  }
+  if (typeof camadaAB !== 'undefined'){
+    camadaAB.clearLayers();
+    pontoALinha = null; pontoBLinha = null; aguardandoCliqueAB = null;
+    document.getElementById('status-ab-linhas').textContent = 'Nenhum ponto marcado ainda.';
+  }
+  btnDesenhar.disabled = false;
+  btnFechar.disabled = true;
+  btnAddGps.disabled = true;
+  btnDesfazer.disabled = true;
+  atualizarResumo();
+  if (avisar) toast('Talhão, curvas e grade limpos.');
+}
+
+/* ===================== Curvas de nível (dentro do talhão) ===================== */
+let camadaCurvas = L.layerGroup().addTo(map);
+let curvas = [];          // [{id, nome, pontos:[{lat,lng}], distancia, cor, linhaLeaflet}]
+let curvaAtual = null;    // {pontos:[], markers:[], linha}
+let gravandoCurva = false;
+let pausadoCurva = false;
+let watchIdCurva = null;
+let distanciaCurvaAtual = 0;
+let markerAtualCurva = null;
+let circuloPrecisaoCurva = null;
+let proximoIdCurva = 1;
+const coresCurvas = ['#3aa6ff', '#ff8c42', '#c15aff', '#5ac084', '#ff5a8c', '#5affea'];
+
+const btnIniciarCurva = document.getElementById('btn-iniciar-curva');
+const btnPausarCurva = document.getElementById('btn-pausar-curva');
+const btnFinalizarCurva = document.getElementById('btn-finalizar-curva');
+const btnAddGpsCurva = document.getElementById('btn-add-gps-curva');
+const btnDesfazerCurva = document.getElementById('btn-desfazer-curva');
+function addPontoCurva(lat, lng){
+  curvaAtual.pontos.push({lat,lng});
+  const m = L.circleMarker([lat,lng], {radius:5, color:'#3aa6ff', fillColor:'#0d1f14', fillOpacity:1, weight:2}).addTo(camadaCurvas);
+  curvaAtual.markers.push(m);
+  if (curvaAtual.linha) { map.removeLayer(curvaAtual.linha); curvaAtual.linha = null; }
+  if (curvaAtual.pontos.length > 1){
+    curvaAtual.linha = L.polyline(curvaAtual.pontos.map(p=>[p.lat,p.lng]), {color:'#3aa6ff', weight:3, dashArray:'6,6'}).addTo(camadaCurvas);
+  }
+  btnDesfazerCurva.disabled = curvaAtual.pontos.length === 0;
+  btnFinalizarCurva.disabled = curvaAtual.pontos.length < 3;
+}
+
+function pararGpsCurva(){
+  if (watchIdCurva !== null){ navigator.geolocation.clearWatch(watchIdCurva); watchIdCurva = null; }
+  if (markerAtualCurva){ map.removeLayer(markerAtualCurva); markerAtualCurva = null; }
+  if (circuloPrecisaoCurva){ map.removeLayer(circuloPrecisaoCurva); circuloPrecisaoCurva = null; }
+  btnPausarCurva.style.display = 'none';
+  document.getElementById('status-curva-atual').style.display = 'none';
+}
+
+function iniciarCurva(){
+  if (!navigator.geolocation) return toast('GPS não disponível neste dispositivo.');
+  if (desenhando) return toast('Finalize o desenho do perímetro antes de registrar curvas de nível.');
+  if (!poligonoFinal || vertices.length < 3) return toast('Percorra e feche o perímetro do talhão antes de registrar curvas de nível.');
+
+  curvaAtual = {pontos:[], markers:[], linha:null};
+  gravandoCurva = true;
+  pausadoCurva = false;
+  distanciaCurvaAtual = 0;
+  btnIniciarCurva.disabled = true;
+  btnFinalizarCurva.disabled = true;
+  btnAddGpsCurva.disabled = false;
+  btnDesfazerCurva.disabled = true;
+  btnPausarCurva.style.display = 'flex';
+  btnPausarCurva.textContent = '⏸️ Pausar';
+  document.getElementById('status-curva-atual').style.display = 'block';
+  toast('Caminhe sobre a curva de nível. Pontos serão marcados automaticamente.');
+
+  watchIdCurva = navigator.geolocation.watchPosition(pos => {
+    const {latitude:lat, longitude:lng, accuracy} = pos.coords;
+
+    if (markerAtualCurva) map.removeLayer(markerAtualCurva);
+    if (circuloPrecisaoCurva) map.removeLayer(circuloPrecisaoCurva);
+    markerAtualCurva = L.circleMarker([lat,lng], {radius:8, color:'#ffffff', weight:2, fillColor:'#3aa6ff', fillOpacity:1}).addTo(map);
+    circuloPrecisaoCurva = L.circle([lat,lng], {radius: accuracy, color:'#3aa6ff', weight:1, fillOpacity:.08}).addTo(map);
+
+    document.getElementById('curva-precisao').textContent = Math.round(accuracy) + ' m';
+    if (accuracy > 25) toastLimitado('gps-fraco', 'Sinal de GPS fraco (±' + Math.round(accuracy) + 'm) — tente em área aberta.');
+
+    if (pausadoCurva) return;
+
+    if (!pontoDentroPoligono(lat, lng, vertices)){
+      toastLimitado('fora-perimetro', '⚠️ Você está fora do perímetro do talhão.', 2000, 6000);
+    }
+
+    const distMinima = parseFloat(document.getElementById('input-dist-minima').value) || 5;
+    if (!curvaAtual.pontos.length){
+      addPontoCurva(lat, lng);
+    } else {
+      const ultimo = curvaAtual.pontos[curvaAtual.pontos.length-1];
+      const d = distanciaMetros(ultimo.lat, ultimo.lng, lat, lng);
+      if (d >= distMinima){
+        distanciaCurvaAtual += d;
+        addPontoCurva(lat, lng);
+      }
+    }
+    document.getElementById('curva-pontos').textContent = curvaAtual.pontos.length;
+    document.getElementById('curva-dist').textContent = Math.round(distanciaCurvaAtual) + ' m';
+    map.panTo([lat, lng]);
+  }, () => toast('Não foi possível obter sua localização. Verifique as permissões de GPS.'), {
+    enableHighAccuracy: true, maximumAge: 0, timeout: 15000
+  });
+}
+
+btnIniciarCurva.addEventListener('click', iniciarCurva);
+
+btnPausarCurva.addEventListener('click', () => {
+  pausadoCurva = !pausadoCurva;
+  btnPausarCurva.textContent = pausadoCurva ? '▶️ Retomar' : '⏸️ Pausar';
+  toast(pausadoCurva ? 'Gravação da curva pausada.' : 'Gravação da curva retomada.');
+});
+
+btnAddGpsCurva.addEventListener('click', () => {
+  if (!navigator.geolocation || !curvaAtual) return toast('Inicie uma curva primeiro.');
+  navigator.geolocation.getCurrentPosition(pos => {
+    addPontoCurva(pos.coords.latitude, pos.coords.longitude);
+    document.getElementById('curva-pontos').textContent = curvaAtual.pontos.length;
+    map.setView([pos.coords.latitude, pos.coords.longitude], map.getZoom());
+    toast('Ponto da curva marcado manualmente.');
+  }, () => toast('Não foi possível obter localização.'), {enableHighAccuracy:true});
+});
+
+btnDesfazerCurva.addEventListener('click', () => {
+  if (!curvaAtual || !curvaAtual.pontos.length) return;
+  curvaAtual.pontos.pop();
+  const m = curvaAtual.markers.pop();
+  if (m) map.removeLayer(m);
+  if (curvaAtual.linha) { map.removeLayer(curvaAtual.linha); curvaAtual.linha = null; }
+  if (curvaAtual.pontos.length > 1){
+    curvaAtual.linha = L.polyline(curvaAtual.pontos.map(p=>[p.lat,p.lng]), {color:'#3aa6ff', weight:3, dashArray:'6,6'}).addTo(camadaCurvas);
+  }
+  document.getElementById('curva-pontos').textContent = curvaAtual.pontos.length;
+  btnDesfazerCurva.disabled = curvaAtual.pontos.length === 0;
+  btnFinalizarCurva.disabled = curvaAtual.pontos.length < 3;
+});
+
+function criarRotuloCurva(idCurva, areaHa, cor, centro){
+  const icon = L.divIcon({
+    className:'', iconSize:[0,0],
+    html:`<div class="rotulo-curva" style="background:${cor}">C${idCurva} · ${areaHa.toFixed(2).replace('.',',')} ha</div>`
+  });
+  return L.marker(centro, {icon, interactive:false}).addTo(camadaCurvas);
+}
+
+btnFinalizarCurva.addEventListener('click', () => {
+  if (!curvaAtual || curvaAtual.pontos.length < 3) return toast('Marque ao menos 3 pontos para fechar a curva.');
+  gravandoCurva = false;
+  pararGpsCurva();
+  if (curvaAtual.linha) map.removeLayer(curvaAtual.linha);
+  curvaAtual.markers.forEach(m => map.removeLayer(m));
+
+  const nomeInput = document.getElementById('input-nome-curva');
+  const nome = nomeInput.value.trim() || `Curva ${curvas.length+1}`;
+  const cor = coresCurvas[curvas.length % coresCurvas.length];
+  const distanciaFinal = distanciaCurvaAtual;
+  const pontosFinais = curvaAtual.pontos;
+  const areaHa = calcularAreaHa(pontosFinais);
+  const areaTalhaoHa = calcularAreaHa(vertices);
+  const pct = areaTalhaoHa > 0 ? (areaHa/areaTalhaoHa*100) : 0;
+  const idCurva = proximoIdCurva++;
+  const linhaFinal = L.polygon(pontosFinais.map(p=>[p.lat,p.lng]), {color:cor, weight:3, fillColor:cor, fillOpacity:.15}).addTo(camadaCurvas)
+    .bindPopup(`<b>${esc(nome)}</b><br>${pontosFinais.length} pontos · ${areaHa.toFixed(2).replace('.',',')} ha (${pct.toFixed(0)}% do talhão)`);
+  const rotulo = criarRotuloCurva(idCurva, areaHa, cor, linhaFinal.getBounds().getCenter());
+  curvas.push({id: idCurva, nome, pontos: pontosFinais, distancia: distanciaFinal, area: areaHa, cor, linhaLeaflet: linhaFinal, rotulo});
+
+  curvaAtual = null;
+  nomeInput.value = '';
+  btnIniciarCurva.disabled = false;
+  btnFinalizarCurva.disabled = true;
+  btnAddGpsCurva.disabled = true;
+  btnDesfazerCurva.disabled = true;
+  renderListaCurvas();
+  atualizarResumo();
+  toast(`"${nome}" fechada automaticamente: ${areaHa.toFixed(2).replace('.',',')} ha.`);
+});
+
+function renderListaCurvas(){
+  const wrap = document.getElementById('lista-curvas');
+  wrap.innerHTML = '';
+  if (!curvas.length){
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--texto-fraco);">Nenhuma curva de nível registrada ainda.</div>';
+    return;
+  }
+  curvas.forEach((c, idx) => {
+    const areaTalhaoHa = calcularAreaHa(vertices);
+    const pct = areaTalhaoHa > 0 ? (c.area/areaTalhaoHa*100) : 0;
+    const el = document.createElement('div');
+    el.className = 'item-talhao';
+    el.innerHTML = `<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.cor};margin-right:6px;"></span>${esc(c.nome)}<br><span>${c.pontos.length} pontos · ${(c.area||0).toFixed(2).replace('.',',')} ha (${pct.toFixed(0)}% do talhão)</span></div>`;
+    const acoes = document.createElement('div');
+    acoes.style.display = 'flex'; acoes.style.gap = '6px';
+    const btnVer = document.createElement('button');
+    btnVer.className = 'btn sm ouro'; btnVer.textContent = 'Ver';
+    btnVer.addEventListener('click', () => {
+      map.fitBounds(c.linhaLeaflet.getBounds(), {padding:[40,40]});
+    });
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn sm perigo'; btnDel.textContent = '✕';
+    btnDel.addEventListener('click', () => {
+      if (c.linhaLeaflet) map.removeLayer(c.linhaLeaflet);
+      if (c.rotulo) map.removeLayer(c.rotulo);
+      curvas.splice(idx,1);
+      renderListaCurvas();
+      atualizarResumo();
+      toast('Curva removida.');
+    });
+    acoes.appendChild(btnVer); acoes.appendChild(btnDel);
+    el.appendChild(acoes);
+    wrap.appendChild(el);
+  });
+}
+renderListaCurvas();
+
+/* ===================== Geometria ===================== */
+const M_POR_GRAU_LAT = 111320;
+function mPorGrauLng(latDeg){ return 111320 * Math.cos(latDeg * Math.PI/180); }
+
+// Shoelace em coordenadas métricas locais (projeção equirretangular simples)
+function calcularAreaHa(pts){
+  if (pts.length < 3) return 0;
+  const lat0 = pts.reduce((s,p)=>s+p.lat,0)/pts.length;
+  const mLng = mPorGrauLng(lat0);
+  const xy = pts.map(p => ({x: p.lng*mLng, y: p.lat*M_POR_GRAU_LAT}));
+  let area = 0;
+  for (let i=0;i<xy.length;i++){
+    const a = xy[i], b = xy[(i+1)%xy.length];
+    area += a.x*b.y - b.x*a.y;
+  }
+  return Math.abs(area/2)/10000; // ha
+}
+
+function pontoDentroPoligono(lat, lng, poly){
+  let dentro = false;
+  for (let i=0, j=poly.length-1; i<poly.length; j=i++){
+    const xi = poly[i].lng, yi = poly[i].lat;
+    const xj = poly[j].lng, yj = poly[j].lat;
+    const intersecta = ((yi>lat) !== (yj>lat)) &&
+      (lng < (xj-xi) * (lat-yi) / (yj-yi) + xi);
+    if (intersecta) dentro = !dentro;
+  }
+  return dentro;
+}
+
+function calcularArea(){
+  const areaHa = calcularAreaHa(vertices);
+  document.getElementById('resumo-area').textContent = areaHa.toFixed(2).replace('.',',') + ' ha';
+}
+
+let camadaAB = L.layerGroup().addTo(map);
+let pontoALinha = null, pontoBLinha = null, aguardandoCliqueAB = null;
+
+function marcarPontoABLinha(lat, lng){
+  if (aguardandoCliqueAB === 'A'){
+    pontoALinha = {lat, lng};
+    L.circleMarker([lat,lng], {radius:7, color:'#ffffff', weight:2, fillColor:'#2f7bde', fillOpacity:1})
+      .addTo(camadaAB).bindTooltip('A', {permanent:true, direction:'top'});
+    aguardandoCliqueAB = 'B';
+    document.getElementById('status-ab-linhas').textContent = 'Ponto A marcado. Agora toque no ponto B (direção da linha).';
+    toast('Ponto A marcado. Toque no ponto B.');
+  } else if (aguardandoCliqueAB === 'B'){
+    pontoBLinha = {lat, lng};
+    L.circleMarker([lat,lng], {radius:7, color:'#ffffff', weight:2, fillColor:'#2f7bde', fillOpacity:1})
+      .addTo(camadaAB).bindTooltip('B', {permanent:true, direction:'top'});
+    L.polyline([[pontoALinha.lat,pontoALinha.lng],[lat,lng]], {color:'#2f7bde', weight:2, dashArray:'6,6'}).addTo(camadaAB);
+    aguardandoCliqueAB = null;
+    document.getElementById('status-ab-linhas').textContent = 'Direção A → B definida.';
+    toast('Direção A→B definida. Pode gerar as linhas de aplicação.');
+  }
+}
+
+document.getElementById('btn-marcar-ab').addEventListener('click', () => {
+  camadaAB.clearLayers();
+  pontoALinha = null; pontoBLinha = null;
+  aguardandoCliqueAB = 'A';
+  document.getElementById('status-ab-linhas').textContent = 'Toque no mapa para marcar o ponto A.';
+  toast('Toque no mapa para marcar o ponto A da direção.');
+});
+
+document.getElementById('btn-limpar-ab').addEventListener('click', () => {
+  camadaAB.clearLayers();
+  pontoALinha = null; pontoBLinha = null; aguardandoCliqueAB = null;
+  document.getElementById('status-ab-linhas').textContent = 'Nenhum ponto marcado ainda.';
+});
+
+document.querySelectorAll('#toggle-modo-direcao div').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#toggle-modo-direcao div').forEach(e=>e.classList.remove('ativo'));
+    el.classList.add('ativo');
+    document.getElementById('wrap-angulo-linhas').style.display = el.dataset.modo === 'manual' ? 'block' : 'none';
+    document.getElementById('wrap-clique-linhas').style.display = el.dataset.modo === 'clique' ? 'block' : 'none';
+  });
+});
+
+function atualizarResumo(){
+  document.getElementById('resumo-curvas').textContent = curvas.length;
+  calcularArea();
+}
+
+/* ===================== Mapa em PDF (desenho vetorial a partir das coordenadas) ===================== */
+function hexParaRgba(hex, alpha){
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function desenharRetanguloArredondado(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function escolherEscalaRedonda(aprox){
+  const passos = [1,2,5,10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000];
+  let melhor = passos[0];
+  passos.forEach(p => { if (p <= aprox) melhor = p; });
+  return melhor;
+}
+
+function gerarMapaPDF(){
+  if (typeof window.jspdf === 'undefined') return toast('Biblioteca de PDF não carregou — recarregue o app.');
+  if (!poligonoFinal || vertices.length < 3) return toast('Feche o perímetro do talhão antes de gerar o PDF.');
+  const nomeFazendaChk = document.getElementById('input-nome-fazenda').value.trim();
+  const nomeTalhaoChk = document.getElementById('input-nome-talhao').value.trim();
+  if (!nomeFazendaChk) return toast('Digite o nome da fazenda antes de gerar o PDF.');
+  if (!nomeTalhaoChk) return toast('Digite o nome do talhão antes de gerar o PDF.');
+
+  const todosPontos = vertices.map(v=>({lat:v.lat,lng:v.lng}));
+  curvas.forEach(c => c.pontos.forEach(p => todosPontos.push({lat:p.lat,lng:p.lng})));
+
+  const lats = todosPontos.map(p=>p.lat), lngs = todosPontos.map(p=>p.lng);
+  const latMin = Math.min(...lats), latMax = Math.max(...lats);
+  const lngMin = Math.min(...lngs), lngMax = Math.max(...lngs);
+  const mLng = mPorGrauLng((latMin+latMax)/2);
+  function paraMetros(lat,lng){ return { x:(lng-lngMin)*mLng, y:(lat-latMin)*M_POR_GRAU_LAT }; }
+  const larguraM = Math.max((lngMax-lngMin)*mLng, 1);
+  const alturaM = Math.max((latMax-latMin)*M_POR_GRAU_LAT, 1);
+
+  // ---- Layout: página > cabeçalho > moldura do mapa > escala/norte > legenda > rodapé ----
+  const larguraCanvas = 1600;
+  const outerPad = 55;
+  const headerH = 92;
+  const headerGap = 18;
+  const innerPad = 36;
+  const frameWidth = larguraCanvas - outerPad*2;
+  const plotAreaWidth = frameWidth - innerPad*2;
+  const escala = plotAreaWidth / larguraM;
+  const alturaUtil = alturaM * escala;
+  const frameHeight = alturaUtil + innerPad*2;
+
+  const nomeFazenda = document.getElementById('input-nome-fazenda').value.trim();
+  const nomeTalhao = document.getElementById('input-nome-talhao').value.trim() || 'Talhão';
+  const areaTalhaoHa = calcularAreaHa(vertices);
+  const dataStr = new Date().toLocaleDateString('pt-BR');
+
+  const headerTop = outerPad;
+  const frameTop = headerTop + headerH + headerGap;
+  const frameBottom = frameTop + frameHeight;
+  const scaleRowTop = frameBottom + 30;
+  const scaleRowH = 42;
+  const legendTop = scaleRowTop + scaleRowH + 22;
+  const legendHeaderH = curvas.length ? 40 : 0;
+  const legendH = curvas.length ? legendHeaderH + curvas.length*24 + 14 : 0;
+  const footerH = 34;
+  const alturaCanvas = Math.round(legendTop + legendH + footerH + outerPad);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = larguraCanvas;
+  canvas.height = alturaCanvas;
+  const ctx = canvas.getContext('2d');
+
+  // fundo geral
+  ctx.fillStyle = '#f4f1e6';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  function px(lat,lng){
+    const m = paraMetros(lat,lng);
+    return { x: outerPad+innerPad + m.x*escala, y: frameTop+innerPad + (alturaUtil - m.y*escala) };
+  }
+
+  // ---- Cabeçalho ----
+  let yLinha1 = headerTop+22;
+  if (nomeFazenda){
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = '#8a6d1f';
+    ctx.fillText(nomeFazenda.toUpperCase(), outerPad, yLinha1);
+    yLinha1 += 30;
+  } else {
+    yLinha1 += 8;
+  }
+  ctx.font = 'bold 28px sans-serif';
+  ctx.fillStyle = '#123822';
+  ctx.fillText(nomeTalhao, outerPad, yLinha1);
+  ctx.font = '15px sans-serif';
+  ctx.fillStyle = '#5c6b60';
+  ctx.fillText(`Área total ${areaTalhaoHa.toFixed(2).replace('.',',')} ha  ·  ${curvas.length} curva(s) de nível`, outerPad, yLinha1+24);
+  ctx.textAlign = 'right';
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#8a8272';
+  ctx.fillText(`Gerado em ${dataStr}`, larguraCanvas-outerPad, headerTop+22);
+  ctx.textAlign = 'left';
+  ctx.strokeStyle = '#c9c2ab'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(outerPad, headerTop+headerH-6); ctx.lineTo(larguraCanvas-outerPad, headerTop+headerH-6); ctx.stroke();
+
+  // ---- Moldura do mapa ----
+  ctx.fillStyle = '#fffdf7';
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#b9b2a0'; ctx.lineWidth = 1.4;
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.clip();
+
+  // perímetro do talhão — linha fina
+  ctx.beginPath();
+  vertices.forEach((v,i) => { const p = px(v.lat,v.lng); i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(90,192,132,0.12)';
+  ctx.fill();
+  ctx.strokeStyle = '#c99a2e';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // curvas de nível — linha fina
+  curvas.forEach(c => {
+    ctx.beginPath();
+    c.pontos.forEach((v,i) => { const p = px(v.lat,v.lng); i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.fillStyle = hexParaRgba(c.cor, .16);
+    ctx.fill();
+    ctx.strokeStyle = c.cor;
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    const pxs = c.pontos.map(v=>px(v.lat,v.lng));
+    const cx = pxs.reduce((s,p)=>s+p.x,0)/pxs.length;
+    const cy = pxs.reduce((s,p)=>s+p.y,0)/pxs.length;
+    const texto = `C${c.id} · ${(c.area||0).toFixed(2).replace('.',',')} ha`;
+    ctx.font = 'bold 14px sans-serif';
+    const largTxt = ctx.measureText(texto).width;
+    ctx.fillStyle = '#ffffff';
+    desenharRetanguloArredondado(ctx, cx-largTxt/2-9, cy-13, largTxt+18, 26, 7);
+    ctx.fill();
+    ctx.strokeStyle = c.cor; ctx.lineWidth = 1.2;
+    desenharRetanguloArredondado(ctx, cx-largTxt/2-9, cy-13, largTxt+18, 26, 7);
+    ctx.stroke();
+    ctx.fillStyle = '#123822';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(texto, cx, cy+1);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  });
+
+  ctx.restore();
+
+  // ---- Escala gráfica (barra profissional em segmentos) ----
+  const escalaMetros = escolherEscalaRedonda(larguraM/4);
+  const escalaPx = escalaMetros * escala;
+  const barY = scaleRowTop + scaleRowH/2;
+  const nSeg = 4;
+  const segPx = escalaPx / nSeg;
+  ctx.lineWidth = 1;
+  for (let i=0; i<nSeg; i++){
+    ctx.fillStyle = i % 2 === 0 ? '#123822' : '#fffdf7';
+    ctx.strokeStyle = '#123822';
+    ctx.fillRect(outerPad + i*segPx, barY-4, segPx, 8);
+    ctx.strokeRect(outerPad + i*segPx, barY-4, segPx, 8);
+  }
+  ctx.font = '12px sans-serif'; ctx.fillStyle = '#123822'; ctx.textAlign = 'center';
+  ctx.fillText('0', outerPad, barY+20);
+  ctx.fillText(`${escalaMetros} m`, outerPad+escalaPx, barY+20);
+  ctx.textAlign = 'left';
+
+  // ---- Rosa dos ventos simplificada ----
+  const nx = larguraCanvas - outerPad - 20, ny = barY;
+  ctx.strokeStyle = '#123822'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(nx, ny, 18, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#123822';
+  ctx.beginPath();
+  ctx.moveTo(nx, ny-16); ctx.lineTo(nx-6, ny+2); ctx.lineTo(nx, ny-4); ctx.lineTo(nx+6, ny+2);
+  ctx.closePath(); ctx.fill();
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('N', nx, ny+30);
+  ctx.textAlign = 'left';
+
+  // ---- Legenda das curvas ----
+  if (curvas.length){
+    desenharRetanguloArredondado(ctx, outerPad, legendTop, frameWidth, legendH, 8);
+    ctx.fillStyle = '#fffdf7'; ctx.fill();
+    ctx.strokeStyle = '#c9c2ab'; ctx.lineWidth = 1; ctx.stroke();
+
+    ctx.font = 'bold 15px sans-serif'; ctx.fillStyle = '#123822';
+    ctx.fillText('Legenda — curvas de nível', outerPad+16, legendTop+24);
+    ctx.strokeStyle = '#e4dfcd';
+    ctx.beginPath(); ctx.moveTo(outerPad+16, legendTop+34); ctx.lineTo(outerPad+frameWidth-16, legendTop+34); ctx.stroke();
+
+    let ly = legendTop + legendHeaderH + 12;
+    ctx.font = '14px sans-serif';
+    curvas.forEach(c => {
+      ctx.fillStyle = c.cor;
+      desenharRetanguloArredondado(ctx, outerPad+16, ly-12, 15, 15, 3);
+      ctx.fill();
+      ctx.fillStyle = '#123822';
+      ctx.fillText(`C${c.id} — ${c.nome}: ${(c.area||0).toFixed(2).replace('.',',')} ha`, outerPad+40, ly);
+      ly += 24;
+    });
+  }
+
+  // ---- Rodapé ----
+  ctx.font = '11.5px sans-serif'; ctx.fillStyle = '#8a8272'; ctx.textAlign = 'right';
+  ctx.fillText('Grade de Amostragem de Solo · João Divino Barbosa', larguraCanvas-outerPad, canvas.height-outerPad+14);
+  ctx.textAlign = 'left';
+
+  const { jsPDF } = window.jspdf;
+  const orientacao = canvas.width >= canvas.height ? 'l' : 'p';
+  const pdf = new jsPDF({orientation: orientacao, unit:'pt', format:'a4'});
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min(pageW/canvas.width, pageH/canvas.height);
+  const imgW = canvas.width*ratio, imgH = canvas.height*ratio;
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (pageW-imgW)/2, (pageH-imgH)/2, imgW, imgH);
+  const nomeArquivo = `mapa-${nomeTalhao.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'talhao'}.pdf`;
+  pdf.save(nomeArquivo);
+  toast('PDF do mapa gerado.');
+}
+
+document.getElementById('btn-pdf-mapa').addEventListener('click', gerarMapaPDF);
+
+function gerarMapaUnificadoPDF(selecionados){
+  if (typeof window.jspdf === 'undefined') return toast('Biblioteca de PDF não carregou — recarregue o app.');
+  if (!selecionados.length) return toast('Marque ao menos um talhão na lista para gerar o mapa unificado.');
+
+  const todosPontos = [];
+  selecionados.forEach(t => t.vertices.forEach(v => todosPontos.push({lat:v.lat,lng:v.lng})));
+  const lats = todosPontos.map(p=>p.lat), lngs = todosPontos.map(p=>p.lng);
+  const latMin = Math.min(...lats), latMax = Math.max(...lats);
+  const lngMin = Math.min(...lngs), lngMax = Math.max(...lngs);
+  const mLng = mPorGrauLng((latMin+latMax)/2);
+  function paraMetros(lat,lng){ return { x:(lng-lngMin)*mLng, y:(lat-latMin)*M_POR_GRAU_LAT }; }
+  const larguraM = Math.max((lngMax-lngMin)*mLng, 1);
+  const alturaM = Math.max((latMax-latMin)*M_POR_GRAU_LAT, 1);
+
+  const larguraCanvas = 1600;
+  const outerPad = 55;
+  const headerH = 92;
+  const headerGap = 18;
+  const innerPad = 36;
+  const frameWidth = larguraCanvas - outerPad*2;
+  const plotAreaWidth = frameWidth - innerPad*2;
+  const escala = plotAreaWidth / larguraM;
+  const alturaUtil = alturaM * escala;
+  const frameHeight = alturaUtil + innerPad*2;
+
+  const fazendasUnicas = [...new Set(selecionados.map(t=>t.fazenda).filter(Boolean))];
+  const nomeFazenda = fazendasUnicas.length === 1 ? fazendasUnicas[0] : (fazendasUnicas.length>1 ? 'Vários talhões' : '');
+  const areaTotalHa = selecionados.reduce((s,t)=>s+calcularAreaHa(t.vertices),0);
+  const dataStr = new Date().toLocaleDateString('pt-BR');
+
+  const headerTop = outerPad;
+  const frameTop = headerTop + headerH + headerGap;
+  const frameBottom = frameTop + frameHeight;
+  const scaleRowTop = frameBottom + 30;
+  const scaleRowH = 42;
+  const legendTop = scaleRowTop + scaleRowH + 22;
+  const legendHeaderH = 40;
+  const legendH = legendHeaderH + selecionados.length*24 + 14;
+  const footerH = 34;
+  const alturaCanvas = Math.round(legendTop + legendH + footerH + outerPad);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = larguraCanvas;
+  canvas.height = alturaCanvas;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#f4f1e6';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  function px(lat,lng){
+    const m = paraMetros(lat,lng);
+    return { x: outerPad+innerPad + m.x*escala, y: frameTop+innerPad + (alturaUtil - m.y*escala) };
+  }
+
+  // ---- Cabeçalho ----
+  let yLinha1 = headerTop+22;
+  if (nomeFazenda){
+    ctx.font = 'bold 15px sans-serif'; ctx.fillStyle = '#8a6d1f';
+    ctx.fillText(nomeFazenda.toUpperCase(), outerPad, yLinha1);
+    yLinha1 += 30;
+  } else { yLinha1 += 8; }
+  ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = '#123822';
+  ctx.fillText('Mapa unificado de talhões', outerPad, yLinha1);
+  ctx.font = '15px sans-serif'; ctx.fillStyle = '#5c6b60';
+  ctx.fillText(`Área total ${areaTotalHa.toFixed(2).replace('.',',')} ha  ·  ${selecionados.length} talhão(ões)`, outerPad, yLinha1+24);
+  ctx.textAlign='right'; ctx.font='13px sans-serif'; ctx.fillStyle='#8a8272';
+  ctx.fillText(`Gerado em ${dataStr}`, larguraCanvas-outerPad, headerTop+22);
+  ctx.textAlign='left';
+  ctx.strokeStyle = '#c9c2ab'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(outerPad, headerTop+headerH-6); ctx.lineTo(larguraCanvas-outerPad, headerTop+headerH-6); ctx.stroke();
+
+  // ---- Moldura ----
+  ctx.fillStyle = '#fffdf7';
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#b9b2a0'; ctx.lineWidth = 1.4;
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  desenharRetanguloArredondado(ctx, outerPad, frameTop, frameWidth, frameHeight, 10);
+  ctx.clip();
+
+  selecionados.forEach((t, i) => {
+    const cor = coresCurvas[i % coresCurvas.length];
+    ctx.beginPath();
+    t.vertices.forEach((v,j) => { const p = px(v.lat,v.lng); j===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.fillStyle = hexParaRgba(cor, .16);
+    ctx.fill();
+    ctx.strokeStyle = cor;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    const pxs = t.vertices.map(v=>px(v.lat,v.lng));
+    const cx = pxs.reduce((s,p)=>s+p.x,0)/pxs.length;
+    const cy = pxs.reduce((s,p)=>s+p.y,0)/pxs.length;
+    const areaHa = calcularAreaHa(t.vertices);
+    const texto = `${t.nome} · ${areaHa.toFixed(2).replace('.',',')} ha`;
+    ctx.font = 'bold 14px sans-serif';
+    const largTxt = ctx.measureText(texto).width;
+    ctx.fillStyle = '#ffffff';
+    desenharRetanguloArredondado(ctx, cx-largTxt/2-9, cy-13, largTxt+18, 26, 7);
+    ctx.fill();
+    ctx.strokeStyle = cor; ctx.lineWidth = 1.2;
+    desenharRetanguloArredondado(ctx, cx-largTxt/2-9, cy-13, largTxt+18, 26, 7);
+    ctx.stroke();
+    ctx.fillStyle = '#123822';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(texto, cx, cy+1);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  });
+  ctx.restore();
+
+  // ---- Escala gráfica ----
+  const escalaMetros = escolherEscalaRedonda(larguraM/4);
+  const escalaPx = escalaMetros * escala;
+  const barY = scaleRowTop + scaleRowH/2;
+  const nSeg = 4;
+  const segPx = escalaPx / nSeg;
+  ctx.lineWidth = 1;
+  for (let i=0; i<nSeg; i++){
+    ctx.fillStyle = i % 2 === 0 ? '#123822' : '#fffdf7';
+    ctx.strokeStyle = '#123822';
+    ctx.fillRect(outerPad + i*segPx, barY-4, segPx, 8);
+    ctx.strokeRect(outerPad + i*segPx, barY-4, segPx, 8);
+  }
+  ctx.font = '12px sans-serif'; ctx.fillStyle = '#123822'; ctx.textAlign = 'center';
+  ctx.fillText('0', outerPad, barY+20);
+  ctx.fillText(`${escalaMetros} m`, outerPad+escalaPx, barY+20);
+  ctx.textAlign = 'left';
+
+  // ---- Rosa dos ventos ----
+  const nx = larguraCanvas - outerPad - 20, ny = barY;
+  ctx.strokeStyle = '#123822'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(nx, ny, 18, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#123822';
+  ctx.beginPath();
+  ctx.moveTo(nx, ny-16); ctx.lineTo(nx-6, ny+2); ctx.lineTo(nx, ny-4); ctx.lineTo(nx+6, ny+2);
+  ctx.closePath(); ctx.fill();
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('N', nx, ny+30);
+  ctx.textAlign = 'left';
+
+  // ---- Legenda dos talhões ----
+  desenharRetanguloArredondado(ctx, outerPad, legendTop, frameWidth, legendH, 8);
+  ctx.fillStyle = '#fffdf7'; ctx.fill();
+  ctx.strokeStyle = '#c9c2ab'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.font = 'bold 15px sans-serif'; ctx.fillStyle = '#123822';
+  ctx.fillText('Legenda — talhões', outerPad+16, legendTop+24);
+  ctx.strokeStyle = '#e4dfcd';
+  ctx.beginPath(); ctx.moveTo(outerPad+16, legendTop+34); ctx.lineTo(outerPad+frameWidth-16, legendTop+34); ctx.stroke();
+  let ly = legendTop + legendHeaderH + 12;
+  ctx.font = '14px sans-serif';
+  selecionados.forEach((t,i) => {
+    const cor = coresCurvas[i % coresCurvas.length];
+    const areaHa = calcularAreaHa(t.vertices);
+    ctx.fillStyle = cor;
+    desenharRetanguloArredondado(ctx, outerPad+16, ly-12, 15, 15, 3);
+    ctx.fill();
+    ctx.fillStyle = '#123822';
+    const fazendaTxt = (t.fazenda && fazendasUnicas.length>1) ? ` (${t.fazenda})` : '';
+    ctx.fillText(`${t.nome}${fazendaTxt}: ${areaHa.toFixed(2).replace('.',',')} ha`, outerPad+40, ly);
+    ly += 24;
+  });
+
+  // ---- Rodapé ----
+  ctx.font = '11.5px sans-serif'; ctx.fillStyle = '#8a8272'; ctx.textAlign = 'right';
+  ctx.fillText('Grade de Amostragem de Solo · João Divino Barbosa', larguraCanvas-outerPad, canvas.height-outerPad+14);
+  ctx.textAlign = 'left';
+
+  const { jsPDF } = window.jspdf;
+  const orientacao = canvas.width >= canvas.height ? 'l' : 'p';
+  const pdf = new jsPDF({orientation: orientacao, unit:'pt', format:'a4'});
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min(pageW/canvas.width, pageH/canvas.height);
+  const imgW = canvas.width*ratio, imgH = canvas.height*ratio;
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', (pageW-imgW)/2, (pageH-imgH)/2, imgW, imgH);
+  pdf.save('mapa-unificado-talhoes.pdf');
+  toast('PDF unificado gerado.');
+}
+
+document.getElementById('btn-pdf-unificado').addEventListener('click', () => {
+  const marcados = Array.from(document.querySelectorAll('.chk-talhao-unificado:checked')).map(c => parseInt(c.dataset.idx));
+  if (!marcados.length) return toast('Marque ao menos um talhão na lista para gerar o mapa unificado.');
+  const lista = listarTalhoesSalvos();
+  const selecionados = marcados.map(i => lista[i]).filter(Boolean);
+  gerarMapaUnificadoPDF(selecionados);
+});
+
+/* ===================== Linhas de aplicação (faixas paralelas) ===================== */
+let camadaLinhasAplicacao = L.featureGroup().addTo(map); // featureGroup tem getBounds()
+let linhasAplicacao = [];
+
+function gerarLinhasAplicacao(){
+  if (!poligonoFinal || vertices.length < 3) return toast('Feche o perímetro do talhão antes de gerar as linhas de aplicação.');
+  const largura = parseFloat(document.getElementById('input-largura-faixa').value);
+  if (!largura || largura <= 0) return toast('Informe uma largura de faixa válida.');
+
+  const modoDirecao = document.querySelector('#toggle-modo-direcao div.ativo').dataset.modo;
+  const lat0 = vertices.reduce((s,v)=>s+v.lat,0)/vertices.length;
+  const mLng = mPorGrauLng(lat0);
+  const xy = vertices.map(v => ({x: v.lng*mLng, y: v.lat*M_POR_GRAU_LAT}));
+
+  let anguloRad;
+  if (modoDirecao === 'manual'){
+    const anguloGraus = parseFloat(document.getElementById('input-angulo-linhas').value) || 0;
+    anguloRad = anguloGraus * Math.PI/180;
+  } else if (modoDirecao === 'clique'){
+    if (!pontoALinha || !pontoBLinha) return toast('Marque os pontos A e B no mapa para definir a direção.');
+    const ax = pontoALinha.lng*mLng, ay = pontoALinha.lat*M_POR_GRAU_LAT;
+    const bx = pontoBLinha.lng*mLng, by = pontoBLinha.lat*M_POR_GRAU_LAT;
+    anguloRad = Math.atan2(bx-ax, by-ay);
+  } else {
+    let maiorLen = -1, maiorAng = 0;
+    for (let i=0;i<xy.length;i++){
+      const a = xy[i], b = xy[(i+1)%xy.length];
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const len = Math.hypot(dx,dy);
+      if (len > maiorLen){ maiorLen = len; maiorAng = Math.atan2(dx, dy); }
+    }
+    anguloRad = maiorAng;
+  }
+
+  function rotacionar(p, ang){
+    const s = Math.sin(ang), c = Math.cos(ang);
+    return { x: p.x*c - p.y*s, y: p.x*s + p.y*c };
+  }
+  const xyRot = xy.map(p => rotacionar(p, anguloRad));
+  const xs = xyRot.map(p=>p.x);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+
+  const linhas = [];
+  let idLinha = 1;
+  for (let x = minX + largura/2; x < maxX; x += largura){
+    const intersecoes = [];
+    for (let i=0;i<xyRot.length;i++){
+      const a = xyRot[i], b = xyRot[(i+1)%xyRot.length];
+      if ((a.x <= x && b.x > x) || (b.x <= x && a.x > x)){
+        const t = (x - a.x) / (b.x - a.x);
+        intersecoes.push(a.y + t*(b.y - a.y));
+      }
+    }
+    intersecoes.sort((p,q)=>p-q);
+    for (let k=0; k+1<intersecoes.length; k+=2){
+      const y1 = intersecoes[k], y2 = intersecoes[k+1];
+      if (y2 - y1 < 1) continue;
+      const p1 = rotacionar({x, y:y1}, -anguloRad);
+      const p2 = rotacionar({x, y:y2}, -anguloRad);
+      linhas.push({
+        id: idLinha++,
+        a: { lat: p1.y / M_POR_GRAU_LAT, lng: p1.x / mLng },
+        b: { lat: p2.y / M_POR_GRAU_LAT, lng: p2.x / mLng },
+        comprimento: y2 - y1
+      });
+    }
+  }
+
+  if (!linhas.length) return toast('Não foi possível gerar linhas com essa largura — tente um valor menor.');
+
+  linhasAplicacao = linhas;
+  camadaLinhasAplicacao.clearLayers();
+  linhas.forEach(l => {
+    L.polyline([[l.a.lat,l.a.lng],[l.b.lat,l.b.lng]], {color:'#2f7bde', weight:2}).addTo(camadaLinhasAplicacao)
+      .bindPopup(`Linha ${l.id} · ${Math.round(l.comprimento)} m`);
+  });
+  map.fitBounds(camadaLinhasAplicacao.getBounds(), {padding:[30,30]});
+
+  const totalM = linhas.reduce((s,l)=>s+l.comprimento,0);
+  const resumo = document.getElementById('resumo-linhas-aplicacao');
+  resumo.style.display = 'block';
+  resumo.innerHTML = `${linhas.length} linha(s) · faixa de ${largura} m · ${(totalM/1000).toFixed(2).replace('.',',')} km ao todo`;
+
+  document.getElementById('btn-linhas-kml').disabled = false;
+  document.getElementById('btn-linhas-gpx').disabled = false;
+  document.getElementById('btn-linhas-shp').disabled = false;
+  toast(`${linhas.length} linha(s) de aplicação geradas.`);
+}
+document.getElementById('btn-gerar-linhas').addEventListener('click', gerarLinhasAplicacao);
+
+document.getElementById('btn-linhas-kml').addEventListener('click', () => {
+  if (!linhasAplicacao.length) return toast('Gere as linhas de aplicação primeiro.');
+  let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Linhas de aplicação</name>\n`;
+  linhasAplicacao.forEach(l => {
+    kml += `<Placemark><name>Linha ${l.id}</name><LineString><coordinates>${l.a.lng.toFixed(7)},${l.a.lat.toFixed(7)},0 ${l.b.lng.toFixed(7)},${l.b.lat.toFixed(7)},0</coordinates></LineString></Placemark>\n`;
+  });
+  kml += `</Document></kml>`;
+  baixar('linhas-aplicacao.kml', kml, 'application/vnd.google-earth.kml+xml');
+  toast('KML das linhas exportado.');
+});
+
+document.getElementById('btn-linhas-gpx').addEventListener('click', () => {
+  if (!linhasAplicacao.length) return toast('Gere as linhas de aplicação primeiro.');
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Grade de Amostragem de Solo" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+  linhasAplicacao.forEach(l => {
+    gpx += `  <trk><name>Linha ${l.id}</name><trkseg>\n`;
+    gpx += `    <trkpt lat="${l.a.lat.toFixed(7)}" lon="${l.a.lng.toFixed(7)}"></trkpt>\n`;
+    gpx += `    <trkpt lat="${l.b.lat.toFixed(7)}" lon="${l.b.lng.toFixed(7)}"></trkpt>\n`;
+    gpx += `  </trkseg></trk>\n`;
+  });
+  gpx += `</gpx>`;
+  baixar('linhas-aplicacao.gpx', gpx, 'application/gpx+xml');
+  toast('GPX das linhas exportado.');
+});
+
+function criarShapefileLinhas(linhas, larguraFaixa){
+  const todosX = [], todosY = [];
+  linhas.forEach(l => { todosX.push(l.a.lng, l.b.lng); todosY.push(l.a.lat, l.b.lat); });
+  const xMin = Math.min(...todosX), xMax = Math.max(...todosX);
+  const yMin = Math.min(...todosY), yMax = Math.max(...todosY);
+  const numRecords = linhas.length;
+  const shpRecordBytes = 4+32+4+4+4+32; // shapeType+box+numParts+numPoints+parts+2 pontos
+
+  const shpBuf = new ArrayBuffer(100 + numRecords*(8+shpRecordBytes));
+  const shpView = new DataView(shpBuf);
+  shpView.setInt32(0, 9994, false);
+  shpView.setInt32(24, (100 + numRecords*(8+shpRecordBytes))/2, false);
+  shpView.setInt32(28, 1000, true);
+  shpView.setInt32(32, 3, true); // PolyLine
+  shpView.setFloat64(36, xMin, true); shpView.setFloat64(44, yMin, true);
+  shpView.setFloat64(52, xMax, true); shpView.setFloat64(60, yMax, true);
+
+  const shxBuf = new ArrayBuffer(100 + numRecords*8);
+  const shxView = new DataView(shxBuf);
+  shxView.setInt32(0, 9994, false);
+  shxView.setInt32(24, (100 + numRecords*8)/2, false);
+  shxView.setInt32(28, 1000, true);
+  shxView.setInt32(32, 3, true);
+  shxView.setFloat64(36, xMin, true); shxView.setFloat64(44, yMin, true);
+  shxView.setFloat64(52, xMax, true); shxView.setFloat64(60, yMax, true);
+
+  let offsetShp = 100;
+  linhas.forEach((l, idx) => {
+    const contentLenWords = shpRecordBytes/2;
+    shpView.setInt32(offsetShp, idx+1, false);
+    shpView.setInt32(offsetShp+4, contentLenWords, false);
+    let p = offsetShp+8;
+    shpView.setInt32(p, 3, true); p+=4;
+    shpView.setFloat64(p, Math.min(l.a.lng,l.b.lng), true); p+=8;
+    shpView.setFloat64(p, Math.min(l.a.lat,l.b.lat), true); p+=8;
+    shpView.setFloat64(p, Math.max(l.a.lng,l.b.lng), true); p+=8;
+    shpView.setFloat64(p, Math.max(l.a.lat,l.b.lat), true); p+=8;
+    shpView.setInt32(p, 1, true); p+=4;
+    shpView.setInt32(p, 2, true); p+=4;
+    shpView.setInt32(p, 0, true); p+=4;
+    shpView.setFloat64(p, l.a.lng, true); p+=8;
+    shpView.setFloat64(p, l.a.lat, true); p+=8;
+    shpView.setFloat64(p, l.b.lng, true); p+=8;
+    shpView.setFloat64(p, l.b.lat, true); p+=8;
+
+    shxView.setInt32(100+idx*8, offsetShp/2, false);
+    shxView.setInt32(100+idx*8+4, contentLenWords, false);
+    offsetShp += 8 + shpRecordBytes;
+  });
+
+  const numFields = 3;
+  const headerLen = 32 + numFields*32 + 1;
+  const recordLen = 1 + 6 + 10 + 8;
+  const dbfBuf = new ArrayBuffer(headerLen + numRecords*recordLen + 1);
+  const dbfView = new DataView(dbfBuf);
+  dbfView.setUint8(0, 0x03);
+  const hoje = new Date();
+  dbfView.setUint8(1, hoje.getFullYear()-1900);
+  dbfView.setUint8(2, hoje.getMonth()+1);
+  dbfView.setUint8(3, hoje.getDate());
+  dbfView.setUint32(4, numRecords, true);
+  dbfView.setUint16(8, headerLen, true);
+  dbfView.setUint16(10, recordLen, true);
+
+  function escreverTexto(offset, texto, tamanho){
+    for (let i=0;i<tamanho;i++) dbfView.setUint8(offset+i, i<texto.length ? texto.charCodeAt(i) : 0);
+  }
+  function textoPadStart(txt, tamanho){
+    txt = String(txt);
+    while (txt.length < tamanho) txt = ' ' + txt;
+    return txt.slice(0,tamanho);
+  }
+
+  let fp = 32;
+  function escreverCampo(nome, tipo, tamanho, decimais){
+    escreverTexto(fp, nome, 11);
+    dbfView.setUint8(fp+11, tipo.charCodeAt(0));
+    dbfView.setUint8(fp+16, tamanho);
+    dbfView.setUint8(fp+17, decimais);
+    fp += 32;
+  }
+  escreverCampo('ID', 'N', 6, 0);
+  escreverCampo('COMPRIM_M', 'N', 10, 2);
+  escreverCampo('LARGURA_M', 'N', 8, 2);
+  dbfView.setUint8(fp, 0x0D);
+
+  let rp = headerLen;
+  linhas.forEach((l, idx) => {
+    dbfView.setUint8(rp, 0x20);
+    let cp = rp+1;
+    escreverTexto(cp, textoPadStart(idx+1, 6), 6); cp += 6;
+    escreverTexto(cp, textoPadStart(l.comprimento.toFixed(2), 10), 10); cp += 10;
+    escreverTexto(cp, textoPadStart(larguraFaixa.toFixed(2), 8), 8);
+    rp += recordLen;
+  });
+  dbfView.setUint8(rp, 0x1A);
+
+  const prjTexto = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+
+  return { shp: new Uint8Array(shpBuf), shx: new Uint8Array(shxBuf), dbf: new Uint8Array(dbfBuf), prj: prjTexto };
+}
+
+document.getElementById('btn-linhas-shp').addEventListener('click', async () => {
+  if (!linhasAplicacao.length) return toast('Gere as linhas de aplicação primeiro.');
+  if (typeof JSZip === 'undefined') return toast('Biblioteca de compactação não carregou — recarregue o app.');
+  const largura = parseFloat(document.getElementById('input-largura-faixa').value) || 0;
+  const arquivos = criarShapefileLinhas(linhasAplicacao, largura);
+  const zip = new JSZip();
+  zip.file('linhas-aplicacao.shp', arquivos.shp);
+  zip.file('linhas-aplicacao.shx', arquivos.shx);
+  zip.file('linhas-aplicacao.dbf', arquivos.dbf);
+  zip.file('linhas-aplicacao.prj', arquivos.prj);
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'linhas-aplicacao-shapefile.zip';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Shapefile (.zip) exportado — importe no Trimble, John Deere Operations Center, Ag Leader, Raven, Topcon etc.');
+});
+
+/* ===================== Exportação ===================== */
+function baixar(nome, conteudo, tipo){
+  const blob = new Blob([conteudo], {type:tipo});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+
+document.getElementById('btn-gpx').addEventListener('click', () => {
+  if (vertices.length < 3 && !curvas.length) return toast('Nada para exportar ainda.');
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Grade de Amostragem de Solo" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+  if (vertices.length >= 3){
+    gpx += `  <trk><name>Talhão</name><trkseg>\n`;
+    vertices.forEach(v => { gpx += `    <trkpt lat="${v.lat.toFixed(7)}" lon="${v.lng.toFixed(7)}"></trkpt>\n`; });
+    gpx += `    <trkpt lat="${vertices[0].lat.toFixed(7)}" lon="${vertices[0].lng.toFixed(7)}"></trkpt>\n`;
+    gpx += `  </trkseg></trk>\n`;
+  }
+  curvas.forEach(c => {
+    gpx += `  <trk><name>${esc(c.nome)}</name><trkseg>\n`;
+    c.pontos.forEach(p => { gpx += `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lng.toFixed(7)}"></trkpt>\n`; });
+    gpx += `    <trkpt lat="${c.pontos[0].lat.toFixed(7)}" lon="${c.pontos[0].lng.toFixed(7)}"></trkpt>\n`;
+    gpx += `  </trkseg></trk>\n`;
+  });
+  gpx += `</gpx>`;
+  baixar('grade-amostragem-solo.gpx', gpx, 'application/gpx+xml');
+  toast('GPX exportado.');
+});
+
+function gerarKmlTexto(){
+  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n`;
+  kml += `<name>Grade de Amostragem de Solo</name>\n`;
+  if (vertices.length >= 3){
+    const coordsTalhao = vertices.map(v => `${v.lng.toFixed(7)},${v.lat.toFixed(7)},0`).join(' ') + ` ${vertices[0].lng.toFixed(7)},${vertices[0].lat.toFixed(7)},0`;
+    kml += `<Placemark><name>Talhão</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coordsTalhao}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n`;
+  }
+  curvas.forEach(c => {
+    const coordsCurva = c.pontos.map(p => `${p.lng.toFixed(7)},${p.lat.toFixed(7)},0`).join(' ') + ` ${c.pontos[0].lng.toFixed(7)},${c.pontos[0].lat.toFixed(7)},0`;
+    kml += `<Placemark><name>${esc(c.nome)}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coordsCurva}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n`;
+  });
+  kml += `</Document></kml>`;
+  return kml;
+}
+
+document.getElementById('btn-kml').addEventListener('click', () => {
+  if (vertices.length < 3 && !curvas.length) return toast('Nada para exportar ainda.');
+  baixar('grade-amostragem-solo.kml', gerarKmlTexto(), 'application/vnd.google-earth.kml+xml');
+  toast('KML exportado.');
+});
+
+document.getElementById('btn-kmz').addEventListener('click', async () => {
+  if (vertices.length < 3 && !curvas.length) return toast('Nada para exportar ainda.');
+  if (typeof JSZip === 'undefined') return toast('Biblioteca de compactação não carregou — recarregue o app.');
+  const zip = new JSZip();
+  zip.file('doc.kml', gerarKmlTexto());
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'grade-amostragem-solo.kmz';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('KMZ exportado.');
+});
+
+/* ===================== Salvar / Carregar talhões (localStorage) ===================== */
+const CHAVE_LS = 'grade_solo_talhoes';
+
+function listarTalhoesSalvos(){
+  try { return JSON.parse(localStorage.getItem(CHAVE_LS)) || []; } catch(e){ return []; }
+}
+function salvarTalhoesSalvos(lista){
+  try { localStorage.setItem(CHAVE_LS, JSON.stringify(lista)); return true; }
+  catch(e){ toast('Não foi possível salvar: armazenamento do aparelho cheio.', 3500); return false; }
+}
+
+document.getElementById('btn-salvar').addEventListener('click', () => {
+  const fazenda = document.getElementById('input-nome-fazenda').value.trim();
+  const nome = document.getElementById('input-nome-talhao').value.trim();
+  if (!fazenda) return toast('Digite o nome da fazenda.');
+  if (!nome) return toast('Dê um nome ao talhão.');
+  if (vertices.length < 3) return toast('Desenhe e feche um talhão antes de salvar.');
+  const lista = listarTalhoesSalvos();
+  lista.push({
+    nome, fazenda, data: new Date().toISOString(),
+    vertices,
+    curvas: curvas.map(c => ({id:c.id, nome:c.nome, pontos:c.pontos, distancia:c.distancia, area:c.area, cor:c.cor}))
+  });
+  if (!salvarTalhoesSalvos(lista)) return;
+  document.getElementById('input-nome-fazenda').value = '';
+  document.getElementById('input-nome-talhao').value = '';
+  renderTalhoesSalvos();
+  toast('Talhão salvo no dispositivo.');
+});
+
+function renderTalhoesSalvos(){
+  const wrap = document.getElementById('talhoes-salvos');
+  const lista = listarTalhoesSalvos();
+  wrap.innerHTML = '';
+  if (!lista.length){
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--texto-fraco);">Nenhum talhão salvo ainda.</div>';
+    return;
+  }
+  lista.forEach((t, idx) => {
+    const areaHa = calcularAreaHa(t.vertices);
+    const el = document.createElement('div');
+    el.className = 'item-talhao';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.gap = '8px';
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'chk-talhao-unificado';
+    chk.dataset.idx = idx;
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    const fazendaTxt = t.fazenda ? `<span style="color:var(--texto-fraco);font-size:11px;">${esc(t.fazenda)}</span><br>` : '';
+    info.innerHTML = `${fazendaTxt}${esc(t.nome)}<br><span>${areaHa.toFixed(2).replace('.',',')} ha · ${(t.curvas||[]).length} curvas</span>`;
+
+    const acoes = document.createElement('div');
+    acoes.style.display = 'flex'; acoes.style.gap = '6px';
+    const btnAbrir = document.createElement('button');
+    btnAbrir.className = 'btn sm ouro'; btnAbrir.textContent = 'Abrir';
+    btnAbrir.addEventListener('click', () => carregarTalhao(t));
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn sm perigo'; btnDel.textContent = '✕';
+    btnDel.addEventListener('click', () => {
+      const l2 = listarTalhoesSalvos(); l2.splice(idx,1); salvarTalhoesSalvos(l2); renderTalhoesSalvos();
+    });
+    acoes.appendChild(btnAbrir); acoes.appendChild(btnDel);
+    el.appendChild(chk);
+    el.appendChild(info);
+    el.appendChild(acoes);
+    wrap.appendChild(el);
+  });
+}
+
+function carregarTalhao(t){
+  limparTudo(false);
+  document.getElementById('input-nome-fazenda').value = t.fazenda || '';
+  document.getElementById('input-nome-talhao').value = t.nome || '';
+  vertices = t.vertices.map(v=>({lat:v.lat,lng:v.lng}));
+  vertices.forEach(v => {
+    const m = L.circleMarker([v.lat,v.lng], {radius:6, color:'#f0c040', fillColor:'#123822', fillOpacity:1, weight:2}).addTo(map);
+    vertMarkers.push(m);
+  });
+  poligonoFinal = L.polygon(vertices.map(v=>[v.lat,v.lng]), {
+    color:'#f0c040', weight:2.5, fillColor:'#5ac084', fillOpacity:.12
+  }).addTo(map);
+  map.fitBounds(poligonoFinal.getBounds(), {padding:[40,40]});
+  curvas = [];
+  camadaCurvas.clearLayers();
+  (t.curvas || []).forEach(c => {
+    const areaHa = c.area != null ? c.area : calcularAreaHa(c.pontos);
+    const linha = L.polygon(c.pontos.map(p=>[p.lat,p.lng]), {color:c.cor||'#3aa6ff', weight:3, fillColor:c.cor||'#3aa6ff', fillOpacity:.15}).addTo(camadaCurvas)
+      .bindPopup(`<b>${esc(c.nome)}</b><br>${c.pontos.length} pontos · ${areaHa.toFixed(2).replace('.',',')} ha`);
+    const rotulo = criarRotuloCurva(c.id, areaHa, c.cor||'#3aa6ff', linha.getBounds().getCenter());
+    curvas.push({...c, area: areaHa, linhaLeaflet: linha, rotulo});
+  });
+  proximoIdCurva = curvas.reduce((max,c)=>Math.max(max,c.id||0), 0) + 1;
+  renderListaCurvas();
+
+  btnDesenhar.disabled = false;
+  atualizarResumo();
+  painel.classList.add('aberto');
+  toast(`Talhão "${t.nome}" carregado.`);
+}
+
+/* ===================== Importar KML / KMZ ===================== */
+document.getElementById('btn-importar-kml').addEventListener('click', () => {
+  document.getElementById('input-importar-kml').click();
+});
+
+document.getElementById('input-importar-kml').addEventListener('change', async (e) => {
+  const arquivo = e.target.files[0];
+  e.target.value = '';
+  if (!arquivo) return;
+  try {
+    let textoKml;
+    const nome = arquivo.name.toLowerCase();
+    if (nome.endsWith('.kmz')){
+      if (typeof JSZip === 'undefined') return toast('Biblioteca de compactação não carregou — recarregue o app.');
+      const zip = await JSZip.loadAsync(arquivo);
+      const arqKml = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.kml'));
+      if (!arqKml) return toast('Nenhum arquivo .kml encontrado dentro do KMZ.');
+      textoKml = await zip.files[arqKml].async('text');
+    } else {
+      textoKml = await arquivo.text();
+    }
+    processarKmlImportado(textoKml);
+  } catch(err){
+    toast('Não foi possível ler o arquivo. Verifique se é um KML/KMZ válido.');
+  }
+});
+
+function processarKmlImportado(textoKml){
+  const dom = new DOMParser().parseFromString(textoKml, 'text/xml');
+  if (dom.querySelector('parsererror')) return toast('Arquivo KML inválido ou corrompido.');
+
+  const placemarks = Array.from(dom.getElementsByTagName('Placemark'));
+  if (!placemarks.length) return toast('Nenhum dado geográfico encontrado no arquivo.');
+
+  let poligonoImportado = null;
+
+  placemarks.forEach((pm, idx) => {
+    const nomeEl = pm.getElementsByTagName('name')[0];
+    const nomePm = nomeEl ? nomeEl.textContent.trim() : `Ponto ${idx+1}`;
+
+    const polyEl = pm.getElementsByTagName('Polygon')[0];
+    if (polyEl && !poligonoImportado){
+      const coordsEl = polyEl.getElementsByTagName('coordinates')[0];
+      if (coordsEl){
+        const pares = coordsEl.textContent.trim().split(/\s+/);
+        const verts = pares.map(par => {
+          const [lng, lat] = par.split(',').map(Number);
+          return {lat, lng};
+        }).filter(v => !isNaN(v.lat) && !isNaN(v.lng));
+        if (verts.length > 1){
+          const primeiro = verts[0], ultimo = verts[verts.length-1];
+          if (Math.abs(primeiro.lat-ultimo.lat) < 1e-9 && Math.abs(primeiro.lng-ultimo.lng) < 1e-9) verts.pop();
+        }
+        if (verts.length >= 3) poligonoImportado = verts;
+      }
+      return;
+    }
+
+  });
+
+  if (!poligonoImportado) return toast('Nenhum polígono (talhão) válido encontrado no arquivo.');
+
+  limparTudo(false);
+
+  if (poligonoImportado){
+    vertices = poligonoImportado;
+    vertices.forEach(v => {
+      const m = L.circleMarker([v.lat,v.lng], {radius:6, color:'#f0c040', fillColor:'#123822', fillOpacity:1, weight:2}).addTo(map);
+      vertMarkers.push(m);
+    });
+    poligonoFinal = L.polygon(vertices.map(v=>[v.lat,v.lng]), {
+      color:'#f0c040', weight:2.5, fillColor:'#5ac084', fillOpacity:.12
+    }).addTo(map);
+    map.fitBounds(poligonoFinal.getBounds(), {padding:[40,40]});
+    btnDesenhar.disabled = false;
+    calcularArea();
+  }
+
+  atualizarResumo();
+  painel.classList.add('aberto');
+  document.getElementById('seta-alca').textContent = '▲ fechar';
+  toast('Talhão importado.');
+}
+
+renderTalhoesSalvos();
+
+/* ===================== Download de imagens offline (tiles) ===================== */
+function latLngParaTile(lat, lng, z){
+  const n = Math.pow(2, z);
+  const x = Math.floor((lng + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n);
+  return {x, y};
+}
+
+function urlTile(z, x, y){
+  return usandoSatelite
+    ? `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`
+    : `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+}
+
+document.getElementById('btn-baixar-tiles').addEventListener('click', async () => {
+  if (!poligonoFinal || vertices.length < 3) return toast('Desenhe e feche um talhão primeiro.');
+  if (!('caches' in window)) return toast('Cache offline não suportado neste navegador.');
+
+  const lats = vertices.map(v=>v.lat), lngs = vertices.map(v=>v.lng);
+  const latMin = Math.min(...lats)-0.002, latMax = Math.max(...lats)+0.002;
+  const lngMin = Math.min(...lngs)-0.002, lngMax = Math.max(...lngs)+0.002;
+
+  const zoomAtual = map.getZoom();
+  const zooms = [...new Set([zoomAtual, Math.min(zoomAtual+1,19), Math.min(zoomAtual+2,19), 17, 18].filter(z=>z<=19))];
+
+  let tiles = [];
+  zooms.forEach(z => {
+    const tMin = latLngParaTile(latMax, lngMin, z);
+    const tMax = latLngParaTile(latMin, lngMax, z);
+    for (let x = tMin.x; x <= tMax.x; x++){
+      for (let y = tMin.y; y <= tMax.y; y++){
+        tiles.push(urlTile(z, x, y));
+      }
+    }
+  });
+  tiles = [...new Set(tiles)];
+
+  if (!tiles.length) return toast('Nada para baixar.');
+  if (tiles.length > 2500) return toast(`Área grande demais (${tiles.length} imagens). Aproxime o mapa do talhão e tente de novo.`, 4000);
+  if (tiles.length > 800 && !confirm(`Serão baixadas ${tiles.length} imagens (pode usar bastante dados e espaço). Continuar?`)) return;
+
+  const barra = document.getElementById('barra-progresso');
+  const fill = document.getElementById('barra-fill');
+  const txt = document.getElementById('progresso-txt');
+  barra.style.display = 'block';
+  txt.style.display = 'block';
+
+  const cache = await caches.open(TILES_CACHE);
+  let feitos = 0;
+  const concorrencia = 6;
+  let falhas = 0;
+
+  async function baixarUm(url){
+    try {
+      if (!(await cache.match(url, {ignoreVary:true}))){
+        const resp = await fetch(url, {mode:'no-cors'});
+        await cache.put(url, resp);
+      }
+    } catch(e){ falhas++; }
+    feitos++;
+    const pct = Math.round((feitos/tiles.length)*100);
+    fill.style.width = pct + '%';
+    txt.textContent = `Baixando imagens offline: ${feitos}/${tiles.length} (${pct}%)`;
+  }
+
+  for (let i = 0; i < tiles.length; i += concorrencia){
+    const lote = tiles.slice(i, i+concorrencia).map(baixarUm);
+    await Promise.all(lote);
+  }
+
+  txt.textContent = falhas
+    ? `Concluído com ${falhas} falha(s). ${tiles.length-falhas} imagens salvas para uso offline.`
+    : `Concluído! ${tiles.length} imagens salvas para uso offline.`;
+  toast('Download de imagens offline concluído.');
+  setTimeout(()=>{ barra.style.display='none'; }, 3000);
+});
+
+</script>
+</body>
+</html>
